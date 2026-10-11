@@ -21,6 +21,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -32,11 +35,8 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: python -c "import os, json, subprocess; version = json.loads(subprocess.check_output(['cargo', 'metadata', '--locked', '--no-deps', '--format-version', '1'], text=True))['packages'][0]['version']; assert os.environ['RELEASE_TAG'] == 'v' + version, 'Tag and Cargo.toml version must match'"
-      - run: cargo fmt --check
-      - run: cargo clippy --locked --all-targets -- -D warnings
-      - run: cargo test --locked
-      - run: node --test tests/frontend.test.cjs
-      - run: cargo build --release --locked
+      - name: Run checks and write report
+        run: python scripts/run_checks.py
       - name: Package executable, documentation and licenses
         run: python scripts/package_release.py --platform ${{ matrix.platform }}
       - uses: actions/upload-artifact@v7

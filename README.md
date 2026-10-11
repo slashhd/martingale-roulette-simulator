@@ -69,24 +69,20 @@ See the [user guide](docs/USAGE.md) for all modes, interpreting results, saving 
 - [User guide](docs/USAGE.md)
 - [Simulation model and statistical limits](docs/SIMULATION_MODEL.md)
 - [Development and release guide](docs/DEVELOPMENT.md)
+- [Latest local test-suite report](docs/TEST_REPORT.md)
 - [HTTP API](docs/API.md)
 - [Contributing](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
 
 ## Development checks
 
-Use stable Rust and Node.js 24 (Node is needed only for the UI tests):
+Use Python 3.9+, stable Rust and Node.js 24 (Node is needed only for the UI checks):
 
 ~~~sh
-cargo fmt --check
-cargo clippy --locked --all-targets -- -D warnings
-cargo test --locked
-node --check static/app.js
-node --test tests/frontend.test.cjs
-cargo build --release --locked
+python scripts/run_checks.py
 ~~~
 
-No npm install or frontend build is required. GitHub Actions runs these checks on Windows, Linux and macOS.
+This runs all documented checks, automatically discovers the Rust and Node test files, and writes `docs/TEST_REPORT.md` with the result of each discovered test case. Enable the [pre-commit hook](docs/DEVELOPMENT.md#commit-hook-and-test-report) to run the suite automatically before each commit. GitHub Actions runs the same checks on Windows, Linux and macOS for pushes and pull requests. No npm install or frontend build is required.
 
 ## License
 

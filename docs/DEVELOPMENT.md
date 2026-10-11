@@ -4,7 +4,7 @@
 
 - Stable Rust with Cargo, rustfmt and Clippy. `rust-toolchain.toml` declares these components.
 - Node.js 24 for dependency-free JavaScript tests.
-- Python 3.9+ only when creating release archives.
+- Python 3.9+ for the test runner and commit hook, and for creating release archives.
 - On Windows, an MSVC-compatible C++ linker/build toolchain.
 
 Download/extract or clone the repository, then work in the directory containing `Cargo.toml`. Commit `Cargo.lock`: this is an application and its dependency resolution belongs in version control.
@@ -32,6 +32,8 @@ Environment variables are documented in the [user guide](USAGE.md). Tests use un
 | `static/index.html` | English form, cards, chart containers and history controls. |
 | `static/app.js` | Form submission, polling and Chart.js rendering. |
 | `tests/frontend.test.cjs` | Node VM tests of the actual application script. |
+| `scripts/run_checks.py` | Shared local and CI check runner; writes `docs/TEST_REPORT.md`. |
+| `.githooks/pre-commit` | Runs the shared check suite before each commit. |
 | `examples/` | Request payloads for manual API use. |
 | `scripts/package_release.py` | Native archive packaging and dependency license collection. |
 | `.github/workflows/` | CI checks and draft release builds. |
@@ -43,15 +45,35 @@ CSV access is serialized by a process-local mutex. It does not lock against othe
 ## Checks
 
 ~~~sh
+python scripts/run_checks.py
+~~~
+
+The runner performs these checks in order and writes their results and durations to [`TEST_REPORT.md`](TEST_REPORT.md):
+
+~~~sh
 cargo fmt --check
 cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked
 node --check static/app.js
-node --test tests/frontend.test.cjs
+node --test
 cargo build --release --locked
 ~~~
 
-Use `cargo fmt` to apply Rust formatting. There is no frontend dependency installation or bundler.
+It continues through the full list after a failure, records every result and exits unsuccessfully if any check fails. `cargo test --locked` discovers Rust unit, integration and documentation tests across the crate. `node --test --test-reporter=tap` discovers Node test files using Node's standard test-file naming rules, including `*.test.cjs` files under `tests/`. The Markdown report lists every discovered Rust and Node test case with its result. Add tests using those conventions and they will be included automatically in local runs, commits, CI and the report. If the project adopts another test framework, add its command to `scripts/run_checks.py` so the runner and report include it. Use `cargo fmt` to apply Rust formatting. There is no frontend dependency installation or bundler.
+
+### Commit hook and test report
+
+Enable the versioned hook once in each clone:
+
+~~~sh
+git config --local core.hooksPath .githooks
+~~~
+
+After it is enabled, every `git commit` runs `python scripts/run_checks.py`. A failed check stops the commit and leaves the failure details in `docs/TEST_REPORT.md`. Once every check passes, the hook stages the refreshed report with the changes being committed. Run `python scripts/run_checks.py` directly whenever you want a fresh report without committing.
+
+The report records the completion time, current revision, platform, each command's result and its duration. It describes the working tree at run time. The committed report gives reviewers a record of the contributor's run. For pull requests, GitHub Actions publishes the same report for the exact revision in the workflow summary and as a `test-report-*` artifact; use that current report as the main test reference during review.
+
+To enforce CI for merges, configure the repository's branch protection or ruleset to require the three `Check (...)` jobs from the `CI` workflow.
 
 Once dependencies are cached, the Rust checks can also use `--offline`. To regenerate the lockfile after intentional dependency changes, run `cargo check` without `--locked`, inspect the lockfile diff, then rerun checks.
 
@@ -98,7 +120,7 @@ Replace both placeholders with your own repository information. If a remote alre
 
 ## GitHub Actions
 
-`ci.yml` runs formatting, Clippy, Rust tests, JavaScript syntax/tests and an optimized build on Windows, Linux and macOS. It triggers on pushes and pull requests and needs read-only repository permissions.
+`ci.yml` runs the shared test runner on Windows, Linux and macOS for pushes and pull requests. Each job publishes its Markdown report in the workflow summary and as an artifact, including when a check fails. Require all three `Check (...)` jobs in branch protection or a ruleset to block merging when any platform fails.
 
 The workflows use official [checkout](https://github.com/actions/checkout), [setup-node](https://github.com/actions/setup-node), [upload-artifact](https://github.com/actions/upload-artifact) and [download-artifact](https://github.com/actions/download-artifact) actions. Rust installation uses rustup already present on GitHub-hosted runners.
 
