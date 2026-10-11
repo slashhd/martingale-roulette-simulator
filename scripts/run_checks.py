@@ -12,6 +12,10 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 REPORT = ROOT / "docs" / "TEST_REPORT.md"
+WARNING_PATTERN = re.compile(
+    r"(?im)^\s*(?:\([^)]+\)\s*)?(?:warning|deprecationwarning|experimentalwarning)"
+    r"(?:\[[^\]]+\])?:"
+)
 CHECKS = [
     ["cargo", "fmt", "--check"],
     ["cargo", "clippy", "--locked", "--all-targets", "--", "-D", "warnings"],
@@ -53,13 +57,34 @@ def discover_test_cases(command: list[str], output: str) -> list[tuple[str, str]
 
 
 def write_report(
-    results: list[tuple[list[str], str, float, list[tuple[str, str]]]],
+    results: list[tuple[list[str], str, float, list[tuple[str, str]], int]],
 ) -> str:
-    passed = all(status == "PASS" for _, status, _, _ in results)
+    passed = all(status == "PASS" for _, status, _, _, _ in results)
     timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     branch = git_value("branch", "--show-current") or "detached HEAD"
     revision = git_value("rev-parse", "HEAD")
     overall = "PASSED" if passed else "FAILED"
+    cases = [
+        (
+            command,
+            "Rust" if command[:2] == ["cargo", "test"] else "Node",
+            name,
+            status,
+        )
+        for command, _, _, test_cases, _ in results
+        for name, status in test_cases
+    ]
+    passed_cases = sum(status == "PASS" for _, _, _, status in cases)
+    failed_cases = [case for case in cases if case[3] == "FAIL"]
+    skipped_cases = sum(status in ("SKIP", "TODO") for _, _, _, status in cases)
+    warning_count = sum(count for _, _, _, _, count in results) + skipped_cases
+    failed_case_commands = {tuple(command) for command, _, _, _ in failed_cases}
+    failed_checks = [
+        command
+        for command, status, _, _, _ in results
+        if status == "FAIL" and tuple(command) not in failed_case_commands
+    ]
+    failure_count = len(failed_cases) + len(failed_checks)
 
     lines = [
         "# Test suite report",
@@ -72,18 +97,35 @@ def write_report(
         f"- Runner: `{sys.platform}`",
         "- Scope: current working tree",
         "",
+        "## Overview",
+        "",
+        f"**Tests passed: {passed_cases}/{len(cases)} | Warnings: {warning_count} | Failed: {failure_count}**",
+        "",
+        "Warnings count warning diagnostics from the checks and skipped, ignored or TODO tests. "
+        "Failures count failed test cases and failed checks not already represented by a failed test.",
+        "",
+        "## Failures",
+        "",
+    ]
+    if not failure_count:
+        lines.append("None.")
+    else:
+        for _, suite, name, status in failed_cases:
+            markdown_name = name.replace("|", "\\|")
+            lines.append(f"- {suite} test `{markdown_name}`: **{status}**")
+        for command in failed_checks:
+            lines.append(f"- Check `{shlex.join(command)}` failed.")
+    lines.extend([
+        "",
+        "## Checks",
+        "",
         "| Check | Result | Duration |",
         "| --- | --- | ---: |",
-    ]
-    for command, status, duration, _ in results:
+    ])
+    for command, status, duration, _, _ in results:
         lines.append(
             f"| `{shlex.join(command)}` | **{status}** | {duration:.1f}s |"
         )
-    cases = [
-        ("Rust" if command[:2] == ["cargo", "test"] else "Node", name, status)
-        for command, _, _, test_cases in results
-        for name, status in test_cases
-    ]
     lines.extend([
         "",
         "## Discovered test cases",
@@ -91,7 +133,7 @@ def write_report(
         "| Suite | Test case | Result |",
         "| --- | --- | --- |",
     ])
-    for suite, name, status in cases:
+    for _, suite, name, status in cases:
         markdown_name = name.replace("|", "\\|")
         lines.append(f"| {suite} | {markdown_name} | **{status}** |")
     if not cases:
@@ -115,7 +157,7 @@ def write_report(
 
 
 def main() -> int:
-    results: list[tuple[list[str], str, float, list[tuple[str, str]]]] = []
+    results: list[tuple[list[str], str, float, list[tuple[str, str]], int]] = []
     for index, command in enumerate(CHECKS, start=1):
         print(f"\n== Check {index}/{len(CHECKS)}: {shlex.join(command)} ==", flush=True)
         started = time.monotonic()
@@ -144,7 +186,13 @@ def main() -> int:
             output = ""
         duration = time.monotonic() - started
         status = "PASS" if exit_code == 0 else "FAIL"
-        results.append((command, status, duration, discover_test_cases(command, output)))
+        results.append((
+            command,
+            status,
+            duration,
+            discover_test_cases(command, output),
+            len(WARNING_PATTERN.findall(output)),
+        ))
         print(f"== {status} ({duration:.1f}s) ==", flush=True)
 
     overall = write_report(results)

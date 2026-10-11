@@ -2,19 +2,31 @@
 
 **Overall result: PASSED**
 
-- Run time (UTC): 2026-10-11T15:58:46Z
-- Git revision at run time: `c57e72205c9d4bc0c7459c75b598d712b97b25b9`
+- Run time (UTC): 2026-10-11T16:09:22Z
+- Git revision at run time: `101ce486cf4897e99f51ac9e3bf9b9d3619583bd`
 - Branch: `main`
 - Runner: `win32`
 - Scope: current working tree
+
+## Overview
+
+**Tests passed: 43/43 | Warnings: 0 | Failed: 0**
+
+Warnings count warning diagnostics from the checks and skipped, ignored or TODO tests. Failures count failed test cases and failed checks not already represented by a failed test.
+
+## Failures
+
+None.
+
+## Checks
 
 | Check | Result | Duration |
 | --- | --- | ---: |
 | `cargo fmt --check` | **PASS** | 0.2s |
 | `cargo clippy --locked --all-targets -- -D warnings` | **PASS** | 0.4s |
-| `cargo test --locked` | **PASS** | 0.6s |
-| `node --check static/app.js` | **PASS** | 0.0s |
-| `node --test --test-reporter=tap` | **PASS** | 0.5s |
+| `cargo test --locked` | **PASS** | 0.7s |
+| `node --check static/app.js` | **PASS** | 0.1s |
+| `node --test --test-reporter=tap` | **PASS** | 0.6s |
 | `cargo build --release --locked` | **PASS** | 0.3s |
 
 ## Discovered test cases
@@ -24,35 +36,35 @@
 | Rust | simulation::tests::bankroll_below_minimum_bet_stops_without_a_spin | **PASS** |
 | Rust | simulation::tests::combined_mode_stops_at_round_limit_if_target_is_not_reached | **PASS** |
 | Rust | simulation::tests::cancelled_batch_has_no_summary_or_completed_runs | **PASS** |
-| Rust | simulation::tests::fixed_spins_ignore_an_unused_target | **PASS** |
-| Rust | simulation::tests::histogram_covers_zero_uniform_and_outlier_samples | **PASS** |
-| Rust | simulation::tests::json_defaults_preserve_fixed_mode_and_european_rules | **PASS** |
-| Rust | simulation::tests::batch_aggregates_all_runs_and_reports_sample_sizes | **PASS** |
-| Rust | api::tests::invalid_payloads_are_rejected_without_writing_history | **PASS** |
-| Rust | api::tests::assets_and_csv_download_have_correct_content_types | **PASS** |
 | Rust | api::tests::unknown_jobs_return_not_found | **PASS** |
+| Rust | api::tests::assets_and_csv_download_have_correct_content_types | **PASS** |
+| Rust | simulation::tests::fixed_spins_ignore_an_unused_target | **PASS** |
+| Rust | api::tests::invalid_payloads_are_rejected_without_writing_history | **PASS** |
+| Rust | simulation::tests::batch_aggregates_all_runs_and_reports_sample_sizes | **PASS** |
+| Rust | simulation::tests::histogram_covers_zero_uniform_and_outlier_samples | **PASS** |
 | Rust | simulation::tests::round_histogram_covers_uniform_samples | **PASS** |
-| Rust | simulation::tests::losses_double_the_stake_and_a_win_resets_it | **PASS** |
 | Rust | simulation::tests::table_limit_caps_stakes_instead_of_stopping_the_session | **PASS** |
-| Rust | simulation::tests::long_sessions_observe_cancellation_between_checkpoints | **PASS** |
-| Rust | simulation::tests::invalid_parameters_are_rejected | **PASS** |
-| Rust | simulation::tests::timeline_holds_bankroll_at_previous_checkpoint_and_after_exit | **PASS** |
-| Rust | simulation::tests::target_reached_on_final_spin_takes_precedence_over_round_limit | **PASS** |
-| Rust | simulation::tests::unlimited_stakes_still_respect_available_bankroll | **PASS** |
 | Rust | api::tests::persistence_failure_is_reported_instead_of_success | **PASS** |
-| Rust | simulation::tests::target_mode_stops_early_and_has_an_explicit_safety_cap | **PASS** |
+| Rust | simulation::tests::target_reached_on_final_spin_takes_precedence_over_round_limit | **PASS** |
+| Rust | simulation::tests::losses_double_the_stake_and_a_win_resets_it | **PASS** |
+| Rust | simulation::tests::json_defaults_preserve_fixed_mode_and_european_rules | **PASS** |
+| Rust | simulation::tests::long_sessions_observe_cancellation_between_checkpoints | **PASS** |
+| Rust | simulation::tests::timeline_holds_bankroll_at_previous_checkpoint_and_after_exit | **PASS** |
+| Rust | simulation::tests::unlimited_stakes_still_respect_available_bankroll | **PASS** |
+| Rust | simulation::tests::invalid_parameters_are_rejected | **PASS** |
 | Rust | storage::tests::missing_history_exports_a_header_and_clear_is_idempotent | **PASS** |
-| Rust | storage::malformed_tests::unsupported_row_width_is_reported | **PASS** |
 | Rust | storage::tests::file_errors_are_returned_to_the_caller | **PASS** |
+| Rust | simulation::tests::target_mode_stops_early_and_has_an_explicit_safety_cap | **PASS** |
+| Rust | storage::malformed_tests::unsupported_row_width_is_reported | **PASS** |
+| Rust | storage::tests::csv_roundtrip_preserves_precision_quotes_and_newest_first | **PASS** |
 | Rust | api::background_tests::cancelled_background_job_discards_partial_results | **PASS** |
 | Rust | api::background_tests::background_storage_error_finishes_with_an_error | **PASS** |
-| Rust | api::tests::asynchronous_job_finishes_and_saves_history | **PASS** |
-| Rust | storage::tests::mixed_legacy_and_current_rows_are_read_without_changing_existing_data | **PASS** |
-| Rust | api::tests::simulate_history_export_and_clear_work_together | **PASS** |
 | Rust | storage::tests::unlimited_history_remains_a_finite_json_number | **PASS** |
-| Rust | storage::tests::concurrent_saves_produce_complete_rows | **PASS** |
-| Rust | storage::tests::csv_roundtrip_preserves_precision_quotes_and_newest_first | **PASS** |
+| Rust | api::tests::asynchronous_job_finishes_and_saves_history | **PASS** |
+| Rust | api::tests::simulate_history_export_and_clear_work_together | **PASS** |
+| Rust | storage::tests::mixed_legacy_and_current_rows_are_read_without_changing_existing_data | **PASS** |
 | Rust | simulation::tests::until_bust_safety_cap_is_not_a_bankruptcy | **PASS** |
+| Rust | storage::tests::concurrent_saves_produce_complete_rows | **PASS** |
 | Node | loading an empty history never starts a simulation automatically | **PASS** |
 | Node | mode selector exposes the matching fields | **PASS** |
 | Node | integer parsing rejects fractions and preserves exponent notation | **PASS** |

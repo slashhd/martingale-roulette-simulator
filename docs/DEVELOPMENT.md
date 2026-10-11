@@ -71,7 +71,7 @@ git config --local core.hooksPath .githooks
 
 After it is enabled, every `git commit` runs `python scripts/run_checks.py`. A failed check stops the commit and leaves the failure details in `docs/TEST_REPORT.md`. Once every check passes, the hook stages the refreshed report with the changes being committed. Run `python scripts/run_checks.py` directly whenever you want a fresh report without committing.
 
-The report records the completion time, current revision, platform, each command's result and its duration. It describes the working tree at run time. The committed report gives reviewers a record of the contributor's run. For pull requests, GitHub Actions publishes the same report for the exact revision in the workflow summary and as a `test-report-*` artifact; use that current report as the main test reference during review.
+The report starts with `Tests passed: N/total | Warnings: N | Failed: N`, followed by a failure list and then every discovered test case. Warnings count warning diagnostics emitted by checks and skipped, ignored or TODO test cases. Failures count failed test cases plus failed checks that are not already represented by a failed case. The report also records the completion time, current revision, platform and each command's duration. It describes the working tree at run time. The committed report gives reviewers a record of the contributor's run. For pull requests, GitHub Actions publishes the same report for the exact revision in the workflow summary and as a `test-report-*` artifact; use that current report as the main test reference during review.
 
 To enforce CI for merges, configure the repository's branch protection or ruleset to require the three `Check (...)` jobs from the `CI` workflow.
 
