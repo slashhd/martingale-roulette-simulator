@@ -1,0 +1,23 @@
+[package]
+name = "martingale_sim"
+version = "0.1.0"
+edition = "2021"
+description = "A local Monte Carlo simulator for Martingale roulette sessions"
+license = "MIT"
+readme = "README.md"
+keywords = ["roulette", "martingale", "simulation", "monte-carlo"]
+categories = ["simulation"]
+
+[dependencies]
+axum = "0.7"
+tokio = { version = "1.40", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rand = { version = "0.8", features = ["small_rng"] }
+rayon = "1.10"
+chrono = { version = "0.4", features = ["serde"] }
+csv = "1.3"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"

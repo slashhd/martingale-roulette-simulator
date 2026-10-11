@@ -1,0 +1,22 @@
+# Rust build artifacts and packaged downloads
+/target/
+/dist/
+/martingale_sim
+/martingale_sim.exe
+
+# Local simulation history (never publish personal runs)
+/martingale_simulations.csv
+/martingale_simulations*.csv
+
+# Editor and operating system files
+/.idea/
+/.vscode/
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.*
+
+# Python packaging caches
+__pycache__/
+*.py[cod]

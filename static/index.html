@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Martingale Roulette – Monte Carlo Simulator</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              500: '#6366f1',
+              600: '#4f46e5',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .font-mono-num {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #1e293b;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 3px;
+    }
+    .glow-hover {
+      transition: all 0.2s ease;
+    }
+    .glow-hover:hover {
+      box-shadow: 0 0 20px -5px rgba(99, 102, 241, 0.4);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-emerald-400 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black text-xl">
+          🎲
+        </div>
+        <div>
+          <h1 class="font-extrabold text-lg sm:text-xl tracking-tight text-white flex items-center gap-2">
+            Martingale Simulator
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Rust Engine</span>
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hidden md:inline">Parallel simulations</span>
+          </h1>
+          <p class="text-xs text-slate-400 hidden sm:block">Monte Carlo analysis, percentile timelines &amp; flexible session modes</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="#history-section" class="text-xs sm:text-sm font-medium px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
+          <span>📜</span> History &amp; CSV
+        </a>
+        <button id="exportCsvBtn" class="text-xs sm:text-sm font-medium px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 transition flex items-center gap-1.5">
+          <span>📥</span> CSV Export
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Top Grid: Form & Key Metrics -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- Left Column: Parameters Input Card (5 cols) -->
+      <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="text-indigo-400 text-lg">⚙️</span>
+            <h2 class="text-base font-bold text-white uppercase tracking-wider text-xs">Configure simulation</h2>
+          </div>
+          <span class="text-[11px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Multi-Threaded (Rayon)</span>
+        </div>
+
+        <!-- 4-Way Mode Selector Cards -->
+        <div class="mb-5">
+          <label class="block text-xs font-semibold text-slate-300 mb-2">Simulation mode (when does a session end?)</label>
+          <div class="grid grid-cols-2 gap-2" id="modeSelectorContainer">
+            <!-- Mode 1: Fixed Rounds -->
+            <button type="button" class="mode-btn p-3 rounded-xl border text-left transition flex flex-col justify-between bg-indigo-950/40 border-indigo-500/60 text-white shadow-sm" data-mode="fixed_rounds">
+              <div class="flex items-center justify-between w-full mb-1">
+                <span class="text-base">⏱️</span>
+                <span class="mode-badge text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">Active</span>
+              </div>
+              <div class="font-bold text-xs">Fixed spins</div>
+              <div class="text-[11px] text-slate-400 leading-tight mt-0.5">Play N spins or until bust</div>
+            </button>
+
+            <!-- Mode 2: Target Profit -->
+            <button type="button" class="mode-btn p-3 rounded-xl border text-left transition flex flex-col justify-between bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700" data-mode="target_profit">
+              <div class="flex items-center justify-between w-full mb-1">
+                <span class="text-base">🎯</span>
+                <span class="mode-badge hidden text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">Active</span>
+              </div>
+              <div class="font-bold text-xs">Profit target</div>
+              <div class="text-[11px] text-slate-400 leading-tight mt-0.5">Reach a target or go bust</div>
+            </button>
+
+            <!-- Mode 3: Combined -->
+            <button type="button" class="mode-btn p-3 rounded-xl border text-left transition flex flex-col justify-between bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700" data-mode="combined">
+              <div class="flex items-center justify-between w-full mb-1">
+                <span class="text-base">🔀</span>
+                <span class="mode-badge hidden text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">Active</span>
+              </div>
+              <div class="font-bold text-xs">Combined</div>
+              <div class="text-[11px] text-slate-400 leading-tight mt-0.5">Stop at N spins or target</div>
+            </button>
+
+            <!-- Mode 4: Till Bust -->
+            <button type="button" class="mode-btn p-3 rounded-xl border text-left transition flex flex-col justify-between bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700" data-mode="till_bust">
+              <div class="flex items-center justify-between w-full mb-1">
+                <span class="text-base">💀</span>
+                <span class="mode-badge hidden text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">Active</span>
+              </div>
+              <div class="font-bold text-xs">Until bust</div>
+              <div class="text-[11px] text-slate-400 leading-tight mt-0.5">Measure survival time</div>
+            </button>
+          </div>
+        </div>
+
+        <form id="simForm" novalidate class="space-y-4">
+          <input type="hidden" id="selectedMode" name="mode" value="fixed_rounds" />
+
+          <!-- Runs -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="runs" class="text-xs font-semibold text-slate-300">Number of runs (sessions)</label>
+              <span id="runsDisplay" class="text-xs font-mono text-indigo-400 font-bold">1,000,000 (1 million)</span>
+            </div>
+            <input type="number" id="runs" name="runs" value="1000000" min="1" max="1000000000" step="1" required
+              class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono-num transition" />
+            <div class="flex flex-wrap gap-1.5 mt-2">
+              <button type="button" class="preset-btn text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 transition" data-runs="100000">100,000</button>
+              <button type="button" class="preset-btn text-[11px] bg-indigo-900/40 text-indigo-300 border border-indigo-700/50 px-2.5 py-1 rounded-lg transition" data-runs="1000000">1 million</button>
+              <button type="button" class="preset-btn text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 transition" data-runs="10000000">10 million</button>
+              <button type="button" class="preset-btn text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 transition" data-runs="100000000">100 million</button>
+              <button type="button" class="preset-btn text-[11px] bg-amber-950/40 text-amber-300 border border-amber-800/40 px-2.5 py-1 rounded-lg transition" data-runs="1000000000">1 billion 🚀</button>
+            </div>
+          </div>
+
+          <!-- Starting bankroll & Minimum bet -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="start_capital" class="block text-xs font-semibold text-slate-300 mb-1">Starting bankroll (€)</label>
+              <input type="number" id="start_capital" name="start_capital" value="1000" min="0.01" step="any" required
+                class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono-num transition" />
+            </div>
+            <div>
+              <label for="min_bet" class="block text-xs font-semibold text-slate-300 mb-1">Minimum bet (€)</label>
+              <input type="number" id="min_bet" name="min_bet" value="5" min="0.01" step="any" required
+                class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono-num transition" />
+            </div>
+          </div>
+
+          <!-- Table limit & Unlimited checkbox -->
+          <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <label for="max_bet" class="text-xs font-semibold text-slate-300">Table limit per spin (€)</label>
+              <div class="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" id="unlimited_max_bet" name="unlimited_max_bet"
+                  class="w-4 h-4 rounded text-indigo-600 bg-slate-900 border-slate-700 focus:ring-indigo-500 focus:ring-offset-slate-900 cursor-pointer" />
+                <label for="unlimited_max_bet" class="text-xs font-bold text-amber-400 cursor-pointer select-none">
+                  Unlimited (∞)
+                </label>
+              </div>
+            </div>
+
+            <div class="relative">
+              <input type="number" id="max_bet" name="max_bet" value="500" min="0.01" step="any"
+                class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono-num transition disabled:opacity-40 disabled:cursor-not-allowed" />
+              <div id="unlimitedNotice" class="hidden absolute inset-0 bg-slate-900/90 border border-amber-500/30 rounded-xl flex items-center px-3 text-xs text-amber-300 font-medium">
+                ♾️ No table limit (limited by available bankroll)
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-500">Bets are capped at the table limit and available bankroll.</p>
+          </div>
+
+          <!-- Dynamic Mode-Specific Parameter Box -->
+          <div id="dynamicParametersBox" class="bg-slate-950/70 p-3.5 rounded-xl border border-indigo-900/30 space-y-3">
+            <div class="flex items-center gap-1.5 text-xs font-bold text-indigo-300">
+              <span id="dynamicBoxIcon">⏱️</span>
+              <span id="dynamicBoxTitle">Spin settings</span>
+            </div>
+
+            <!-- Field: Spins per session -->
+            <div id="roundsFieldContainer">
+              <div class="flex justify-between items-center mb-1">
+                <label for="rounds_per_run" id="roundsFieldLabel" class="text-xs font-semibold text-slate-300">Spins per session</label>
+                <span id="roundsFieldHint" class="text-[11px] text-slate-500">e.g. 100</span>
+              </div>
+              <input type="number" id="rounds_per_run" name="rounds_per_run" value="100" min="1" max="1000000" step="1"
+                class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono-num focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition" />
+            </div>
+
+            <!-- Field: Profit target -->
+            <div id="targetProfitContainer" class="hidden">
+              <div class="flex justify-between items-center mb-1">
+                <label for="target_profit" class="text-xs font-semibold text-emerald-400">Net profit target (€)</label>
+                <span class="text-[11px] text-slate-500">e.g. +100 €</span>
+              </div>
+              <input type="number" id="target_profit" name="target_profit" value="100" min="0.01" step="any" placeholder="e.g. 100"
+                class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono-num focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition" />
+            </div>
+
+            <!-- Info box for Till Bust -->
+            <div id="tillBustInfoNotice" class="hidden text-xs text-amber-350 bg-amber-950/30 border border-amber-800/40 p-2.5 rounded-lg text-slate-300 space-y-1">
+              <div>⚠️ <strong>Until bust mode:</strong> Each session continues until the bankroll falls below the minimum bet. Results measure survival time.</div>
+              <div class="text-[11px] text-amber-400/90 font-medium">💡 <strong>Unlimited table limit:</strong> Long sessions can be expensive to compute. A safety cap stops each session after 1,000,000 spins; capped sessions are reported separately.</div>
+            </div>
+          </div>
+
+          <!-- Roulette Rule Type -->
+          <div class="flex items-center justify-between text-xs bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
+            <label for="roulette_type" class="font-semibold text-slate-400">Roulette rules</label>
+            <select id="roulette_type" name="roulette_type" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white">
+              <option value="european" selected>European (18/37 ~ 48.65%)</option>
+              <option value="american">American (18/38 ~ 47.37%)</option>
+            </select>
+          </div>
+
+          <!-- Start CTA Button & Cancel Button -->
+          <div class="space-y-2 pt-1">
+            <button type="submit" id="submitBtn"
+              class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-600 hover:from-indigo-500 hover:to-indigo-500 text-white font-bold text-sm tracking-wide shadow-lg shadow-indigo-600/30 glow-hover transition flex items-center justify-center gap-2">
+              <span id="btnIcon">🚀</span>
+              <span id="btnText">Start Monte Carlo simulation</span>
+            </button>
+            <button type="button" id="cancelJobBtn" class="hidden w-full py-2.5 px-4 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/30 text-rose-300 font-semibold text-xs transition flex items-center justify-center gap-2">
+              <span>🛑</span> Cancel simulation
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Right Column: Context-Aware KPI Cards & Output Overview (7 cols) -->
+      <div class="lg:col-span-7 space-y-4">
+
+        <!-- Live Status Bar & Streaming Progress -->
+        <div id="statusBanner" class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 text-xs">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="relative flex h-2.5 w-2.5">
+                <span id="pingDot" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span id="pingCore" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <span id="statusText" class="text-slate-300 font-medium">Ready to simulate</span>
+            </div>
+            <div class="text-slate-400 font-mono-num flex items-center gap-2">
+              <span>⏱️ Compute time: <strong id="kpiDuration" class="text-indigo-400">-</strong></span>
+              <span id="kpiThroughput" class="hidden sm:inline text-slate-500 text-[11px]"></span>
+            </div>
+          </div>
+
+          <!-- Streaming Progress Bar (Visible during runs) -->
+          <div id="streamProgressContainer" class="hidden pt-1 space-y-1.5">
+            <div class="flex justify-between items-center text-[11px] font-mono-num text-slate-400">
+              <span id="streamProgressRuns">0 / 0 Runs</span>
+              <span id="streamProgressSpeed" class="text-indigo-400 font-semibold">0 Runs/s</span>
+              <span id="streamProgressEta" class="text-amber-400">ETA: -</span>
+            </div>
+            <div class="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800">
+              <div id="streamProgressBar" class="bg-gradient-to-r from-indigo-500 via-indigo-400 to-emerald-400 h-full w-0 transition-all duration-150"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Safety Cap Notification Banner -->
+        <div id="safetyCapBanner" class="hidden p-3 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-base">🛡️</span>
+            <div>
+              <strong>Safety cap reached:</strong>
+              <span id="safetyCapBannerText">Some sessions reached the safety cap without going bust.</span>
+            </div>
+          </div>
+          <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-200">Safety cap</span>
+        </div>
+
+        <!-- 4 Fully Adaptive KPI Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="kpiCardsGrid">
+
+          <!-- Card 1: Dynamic Outcome / Failure / Target / Bust -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden" id="card1">
+            <div class="flex items-center justify-between mb-2">
+              <span id="card1Title" class="text-xs font-bold uppercase tracking-wider text-slate-400">Sessions ending at a loss</span>
+              <span id="card1Badge" class="text-xs font-semibold px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">Loss / bust</span>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span id="card1Value" class="text-3xl sm:text-4xl font-extrabold text-rose-400 font-mono-num">- %</span>
+              <span id="card1SubValue" class="text-xs text-slate-400 font-mono-num">(-)</span>
+            </div>
+            <div class="w-full bg-slate-800 h-2 rounded-full mt-3 overflow-hidden">
+              <div id="card1ProgressBar" class="bg-rose-500 h-full w-0 transition-all duration-500"></div>
+            </div>
+            <div class="flex justify-between items-center text-[11px] text-slate-400 mt-2">
+              <span id="card1DetailLabel">Unable to place minimum bet:</span>
+              <strong id="card1DetailVal" class="text-rose-300 font-mono-num">-</strong>
+            </div>
+          </div>
+
+          <!-- Card 2: Average final bankroll / Profit / Survival -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden" id="card2">
+            <div class="flex items-center justify-between mb-2">
+              <span id="card2Title" class="text-xs font-bold uppercase tracking-wider text-slate-400">Average final bankroll</span>
+              <span id="card2Badge" class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Mean</span>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span id="card2Value" class="text-3xl sm:text-4xl font-extrabold text-white font-mono-num">- €</span>
+            </div>
+            <div class="mt-3 flex items-center justify-between text-xs">
+              <span id="card2DetailLabel" class="text-slate-400">Net profit / loss:</span>
+              <strong id="card2DetailVal" class="font-mono-num text-sm font-bold text-slate-300">- €</strong>
+            </div>
+            <div id="card2Subtext" class="text-[11px] text-slate-500 mt-1">Across all simulated sessions</div>
+          </div>
+
+          <!-- Card 3: Median / Typisches Ergebnis / spins -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden" id="card3">
+            <div class="flex items-center justify-between mb-2">
+              <span id="card3Title" class="text-xs font-bold uppercase tracking-wider text-slate-400">Median final bankroll</span>
+              <span id="card3Badge" class="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">50th percentile</span>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span id="card3Value" class="text-3xl sm:text-4xl font-extrabold text-indigo-300 font-mono-num">- €</span>
+            </div>
+            <div class="mt-3 flex items-center justify-between text-xs">
+              <span id="card3DetailLabel" class="text-slate-400">Net profit / loss:</span>
+              <strong id="card3DetailVal" class="font-mono-num text-sm font-bold text-slate-300">- €</strong>
+            </div>
+            <div id="card3Subtext" class="text-[11px] text-slate-500 mt-1">Sampled median includes sessions that went bust</div>
+          </div>
+
+          <!-- Card 4: Peak bankroll / Peak Survival -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden" id="card4">
+            <div class="flex items-center justify-between mb-2">
+              <span id="card4Title" class="text-xs font-bold uppercase tracking-wider text-slate-400">Peak bankroll</span>
+              <span id="card4Badge" class="text-xs font-semibold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Peak All Runs</span>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span id="card4Value" class="text-3xl sm:text-4xl font-extrabold text-amber-400 font-mono-num">- €</span>
+            </div>
+            <div class="mt-3 flex items-center justify-between text-xs">
+              <span id="card4DetailLabel" class="text-slate-400">Lowest final bankroll:</span>
+              <strong id="card4DetailVal" class="font-mono-num text-sm text-slate-300">- €</strong>
+            </div>
+            <div id="card4Subtext" class="text-[11px] text-slate-500 mt-1 leading-tight">Highest bankroll at any point</div>
+          </div>
+
+        </div>
+
+        <!-- Secondary Streaks & Rounds Bar -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between">
+            <div>
+              <div class="text-[11px] text-slate-400 font-medium">Spins played</div>
+              <div class="text-[11px] text-indigo-400">Mean / median</div>
+            </div>
+            <div id="kpiAvgRounds" class="text-xl font-bold text-white font-mono-num">-</div>
+          </div>
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between">
+            <div>
+              <div class="text-[11px] text-slate-400 font-medium">Longest losing streak</div>
+              <div class="text-[11px] text-rose-400">Consecutive losses</div>
+            </div>
+            <div id="kpiMaxLossStreak" class="text-xl font-black text-rose-400 font-mono-num">-</div>
+          </div>
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between">
+            <div>
+              <div class="text-[11px] text-slate-400 font-medium">Longest winning streak</div>
+              <div class="text-[11px] text-emerald-400">Consecutive wins</div>
+            </div>
+            <div id="kpiMaxWinStreak" class="text-xl font-black text-emerald-400 font-mono-num">-</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Charts Section with 5 Tabs (including Timeline Fan Chart) -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+        <div>
+          <h2 class="text-base font-bold text-white tracking-tight flex items-center gap-2">
+            <span>📊</span> Charts &amp; visual analysis
+          </h2>
+          <p id="chartsSubheader" class="text-xs text-slate-400">Explore sampled distributions, percentile timelines and session paths</p>
+        </div>
+
+        <!-- Tab Controls -->
+        <div class="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-semibold overflow-x-auto">
+          <button id="tabDistributionBtn" class="chart-tab-btn px-3 py-1.5 rounded-lg bg-indigo-600 text-white transition whitespace-nowrap">
+            Bankroll distribution
+          </button>
+          <button id="tabTimelineBtn" class="chart-tab-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+            📈 Timeline (percentiles)
+          </button>
+          <button id="tabRoundsDistributionBtn" class="chart-tab-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+            Spin distribution
+          </button>
+          <button id="tabTrajectoriesBtn" class="chart-tab-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+            Sample paths
+          </button>
+          <button id="tabTrendsBtn" class="chart-tab-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition whitespace-nowrap">
+            History trends
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab 1: Capital Histogram Canvas -->
+      <div id="tabDistribution" class="chart-pane mt-4">
+        <div class="h-80 w-full relative">
+          <canvas id="distributionChart"></canvas>
+        </div>
+        <p class="text-[11px] text-slate-500 text-center mt-2">
+          Estimated final bankroll distribution from a bounded sample. Zero bankrolls appear in a separate bucket.
+        </p>
+      </div>
+
+      <!-- Tab 2: Timeline Fan Chart (Mean, Median, Percentiles over Rounds) -->
+      <div id="tabTimeline" class="chart-pane hidden mt-4">
+        <div class="h-80 w-full relative">
+          <canvas id="timelineChart"></canvas>
+        </div>
+        <p class="text-[11px] text-slate-400 text-center mt-2">
+          Sampled bankroll over time:
+          <span class="inline-block w-2.5 h-2.5 rounded-full bg-indigo-500 mr-1 ml-2"></span><strong>Median</strong> (solid),
+          <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 mr-1 ml-2"></span><strong>Mean</strong> (dashed),
+          <span class="inline-block w-2.5 h-2.5 rounded-sm bg-indigo-500/40 mr-1 ml-2"></span><strong>Middle 50% of outcomes</strong> (25th–75th percentile),
+          <span class="inline-block w-2.5 h-2.5 rounded-sm bg-indigo-500/15 mr-1 ml-2"></span><strong>Middle 80% of outcomes</strong> (10th–90th percentile).
+        </p>
+      </div>
+
+      <!-- Tab 3: Rounds Histogram Canvas -->
+      <div id="tabRoundsDistribution" class="chart-pane hidden mt-4">
+        <div class="h-80 w-full relative">
+          <canvas id="roundsDistributionChart"></canvas>
+        </div>
+        <p class="text-[11px] text-slate-500 text-center mt-2">
+          Estimated distribution of spins played until a stopping condition is reached.
+        </p>
+      </div>
+
+      <!-- Tab 4: Sample Trajectories Canvas -->
+      <div id="tabTrajectories" class="chart-pane hidden mt-4">
+        <div class="h-80 w-full relative">
+          <canvas id="trajectoriesChart"></canvas>
+        </div>
+        <p id="trajectoriesCaption" class="text-[11px] text-slate-500 text-center mt-2">
+          Up to 10 sampled session paths. Red lines indicate sessions that went bust.
+        </p>
+      </div>
+
+      <!-- Tab 5: Historical Trends Canvas -->
+      <div id="tabTrends" class="chart-pane hidden mt-4">
+        <div class="h-80 w-full relative">
+          <canvas id="trendsChart"></canvas>
+        </div>
+        <p class="text-[11px] text-slate-500 text-center mt-2">
+          Loss rate and average net profit across saved simulations. Parameters may differ between entries.
+        </p>
+      </div>
+    </div>
+
+    <!-- Persistent CSV History Section with Mode-Specific Filtering and Dynamic Columns -->
+    <div id="history-section" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+        <div>
+          <h2 class="text-base font-bold text-white tracking-tight flex items-center gap-2">
+            <span>📜</span> Simulation history
+          </h2>
+          <p class="text-xs text-slate-400">
+            Saved in the local CSV file <code class="text-indigo-400 font-mono font-semibold">martingale_simulations.csv</code>
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="refreshHistoryBtn" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1">
+            🔄 Refresh
+          </button>
+          <button id="clearHistoryBtn" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 transition flex items-center gap-1">
+            🗑️ Clear history
+          </button>
+        </div>
+      </div>
+
+      <!-- Mode Filter Pills for History Table -->
+      <div class="flex items-center gap-1.5 overflow-x-auto py-1">
+        <span class="text-xs font-semibold text-slate-400 mr-1.5">Filter by mode:</span>
+        <button type="button" class="history-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition" data-mode-filter="all">All</button>
+        <button type="button" class="history-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition" data-mode-filter="fixed_rounds">⏱️ Fixed spins</button>
+        <button type="button" class="history-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition" data-mode-filter="target_profit">🎯 Profit target</button>
+        <button type="button" class="history-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition" data-mode-filter="combined">🔀 Combined</button>
+        <button type="button" class="history-filter-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition" data-mode-filter="till_bust">💀 Until bust</button>
+      </div>
+
+      <!-- Table Wrapper with Dynamically Adapted Headers -->
+      <div class="overflow-x-auto custom-scrollbar border border-slate-800 rounded-xl">
+        <table class="w-full text-left text-xs text-slate-300">
+          <thead id="historyTableHead" class="bg-slate-950 text-slate-400 font-semibold border-b border-slate-800 uppercase text-[10px] tracking-wider">
+            <!-- Rendered by JS -->
+          </thead>
+          <tbody id="historyTableBody" class="divide-y divide-slate-800 font-mono-num">
+            <tr>
+              <td colspan="11" class="py-6 text-center text-slate-500 font-sans">No simulations yet. Start a simulation to see results.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800 bg-slate-900 py-4 text-center text-xs text-slate-500">
+    Martingale Monte-Carlo Simulator &bull; High-Performance Rust (Axum + Rayon) &bull; Percentile timelines &amp; mode-specific CSV analysis
+  </footer>
+
+  <!-- Application logic is embedded in the binary by the server. -->
+  <script src="/app.js"></script>
+</body>
+</html>

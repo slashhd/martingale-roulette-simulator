@@ -1,0 +1,11 @@
+{
+  "runs": 10000,
+  "min_bet": 5,
+  "max_bet": 500,
+  "unlimited_max_bet": false,
+  "start_capital": 1000,
+  "mode": "fixed_rounds",
+  "rounds_per_run": 100,
+  "target_profit": null,
+  "roulette_type": "european"
+}
